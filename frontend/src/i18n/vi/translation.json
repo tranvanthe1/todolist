@@ -1,0 +1,28 @@
+{
+    "add": "Thêm",
+    "enter todo items": "Nhập việc cần làm",
+    "select file": "Chọn file",
+    "complete": "Hoàn thành",
+    "content": "Nội dung",
+    "action": "Hành động",
+    "unfinished": "Chưa hoàn thành",
+    "all": "Tất cả",
+    "all tasks have been completed": "Đã hoàn thành hết việc cần làm",
+    "task_summary": "Còn {{finished}}/{{total}} việc chưa hoàn thành",
+    "sign in":"Đăng nhập",
+    "add file": "Thêm file",
+    "login successful": "Đăng nhập thành công",
+    "update successful": "Cập nhật thành công",
+    "update failed": "Cập nhật thất bại",
+    "please enter a task": "Hãy nhập việc cần làm",
+    "please log in first": "Vui lòng đăng nhập trước",
+    "failed to retrieve siteId or driveId, please log in again": "Chưa lấy được siteId hoặc driveId, vui lòng đăng nhập lại",
+    "task added successfully": "Thêm việc cần làm thành công",
+    "task and folder deleted successfully": "Xóa việc cần làm và thư mục thành công",
+    "error deleting task and folder": "Lỗi khi xoá việc cần làm và thư mục",
+    "file uploaded successfully": "Tải file thành công",
+    "error uploading file": "Lỗi khi tải file",
+    "file deleted successfully": "Xóa file thành công",
+    "error deleting file": "Lỗi khi xoá file"
+
+}
