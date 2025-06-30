@@ -1,8 +1,8 @@
 import { useContext, useMemo, useState } from "react";
 import { MyContext } from "../App";
-import { Table, Select, Input, Button, Upload, Spin, message, Space, Avatar, Alert, Checkbox } from "antd";
-import type { UploadFile, UploadProps } from "antd";
-import { UploadOutlined, UserOutlined } from "@ant-design/icons";
+import { Table, Select, Input, Button, Upload, Spin, message, Alert, Checkbox, Popconfirm } from "antd";
+import type { UploadFile, UploadProps, PopconfirmProps } from "antd";
+import { UploadOutlined } from "@ant-design/icons";
 import { MdEdit } from "react-icons/md";
 import { RiDeleteBin6Line } from "react-icons/ri";
 import {
@@ -13,22 +13,11 @@ import {
   getDataById,
   postData,
 } from "../api/todoApi";
-import {
-  createFolderIfNotExist,
-  deleteFileOnSharePoint,
-  deleteFolderOnSharePoint,
-  getDriveId,
-  getSiteId,
-  uploadFileToSharePoint,
-} from "../api/sharepointApi";
 import { ColumnsType } from "antd/es/table";
 import { Todo } from "../types/todo";
 import { useTranslation } from "react-i18next";
-import { useMsal } from "@azure/msal-react";
-import { loginRequest } from "../authConfig";
 
-import type { PopconfirmProps } from 'antd';
-import {  Popconfirm } from 'antd';
+import { createFolderIfNotExist, deleteFolderOnSharePoint, deleteFileOnSharePoint, uploadFileToSharePoint } from "../api/sharepointApi";
 
 const TodoApp = () => {
 
@@ -37,13 +26,7 @@ const TodoApp = () => {
   const { t, i18n } = useTranslation();
   const [currentLanguage, setCurrentLanguage] = useState("vi");
 
-  const { instance } = useMsal();
-
   const [messageApi, contextHolder] = message.useMessage();
-
-  const [accessToken, setAccessToken] = useState<string>("");
-  const [siteId, setSiteId] = useState<string>("");
-  const [driveId, setDriveId] = useState<string>("");
 
   const [newTodo, setNewTodo] = useState<string>("");
   const [filterStatus, setFilterStatus] = useState<string>("all");
@@ -74,25 +57,6 @@ const TodoApp = () => {
     });
   }, [context.todos, filterStatus]);
 
-  const fetchSiteAndDriveId = async (accessToken: string) => {
-    if (!accessToken) return;
-    const site = await getSiteId(accessToken);
-    const drive = await getDriveId(site, accessToken);
-    setSiteId(site);
-    setDriveId(drive);
-  };
-
-  const handleLogin = () => {
-    instance
-      .loginPopup(loginRequest)
-      .then(async (res) => {
-        setAccessToken(res.accessToken);
-        messageApi.success(t("login successful"));
-        await fetchSiteAndDriveId(res.accessToken);
-      })
-      .catch((e) => console.error(e));
-  };
-
   const handleUploadChange: UploadProps["onChange"] = (info) => {
     setFileList(info.fileList);
   };
@@ -116,35 +80,17 @@ const TodoApp = () => {
       messageApi.error(t("please enter a task"));
       return;
     }
-    if (!accessToken) {
-      messageApi.error(t("please log in first"));
-      return;
-    }
-    if (!siteId || !driveId) {
-      messageApi.error(
-        t("failed to retrieve siteId or driveId, please log in again")
-      );
-      return;
-    }
     setSpinning(true);
 
     const newItem = await postData<Todo>("/todo/add", { title: newTodo });
     const id = newItem.id;
 
-    // Tạo folder theo id todo
-    await createFolderIfNotExist(siteId, driveId, id, accessToken);
+    await createFolderIfNotExist( id );
 
-    const uploadedFiles: { id: string; url: string }[] = [];
-
+    const uploadedFiles = [];
     for (let file of fileList) {
-      const fileRes = await uploadFileToSharePoint(
-        siteId,
-        driveId,
-        id,
-        file.originFileObj as File,
-        accessToken
-      );
-      uploadedFiles.push(fileRes);
+      const res = await uploadFileToSharePoint(id, file.originFileObj as File);
+      uploadedFiles.push(res.data);
     }
 
     await editData(`/todo/${id}`, { attachments: uploadedFiles });
@@ -157,20 +103,10 @@ const TodoApp = () => {
   };
 
   const deleteTodo = async (id: string) => {
-    if (!accessToken) {
-      messageApi.error(t("please log in first"));
-      return;
-    }
-    if (!siteId || !driveId) {
-      messageApi.error(
-        t("failed to retrieve siteId or driveId, please log in again")
-      );
-      return;
-    }
     setSpinning(true);
     try {
       
-      await deleteFolderOnSharePoint(siteId, driveId, id, accessToken);
+      await deleteFolderOnSharePoint( id );
       
       await deleteData(`/todo/${id}`);
 
@@ -187,28 +123,15 @@ const TodoApp = () => {
   };
 
   const handleUploadFile = async (todoId: string, file: File) => {
-    if (!accessToken) {
-      messageApi.error(t("please log in first"));
-      return;
-    }
-    if (!siteId || !driveId) {
-      messageApi.error(
-        t("failed to retrieve siteId or driveId, please log in again")
-      );
-      return;
-    }
     setSpinning(true);
     try {
       const fileRes = await uploadFileToSharePoint(
-        siteId,
-        driveId,
         todoId,
-        file,
-        accessToken
+        file
       );
 
       const todo = await getDataById<Todo>(`/todo/${todoId}`);
-      const updatedAttachments = [...(todo.attachments || []), fileRes];
+      const updatedAttachments = [...(todo.attachments || []), fileRes.data];
 
       await editData(`/todo/${todoId}`, { attachments: updatedAttachments });
 
@@ -231,24 +154,14 @@ const TodoApp = () => {
   const cancel: PopconfirmProps['onCancel'] = (e) => {
   };
 
-  const handleDeleteFile = async (todoId: string, itemId: string) => {
-    if (!accessToken) {
-      messageApi.error(t("please log in first"));
-      return;
-    }
-    if (!siteId || !driveId) {
-      messageApi.error(
-        t("failed to retrieve siteId or driveId, please log in again")
-      );
-      return;
-    }
+  const handleDeleteFile = async (todoId: string, fileName: string) => {
     setSpinning(true);
     try {
-      await deleteFileOnSharePoint(siteId, driveId, itemId, accessToken);
+      await deleteFileOnSharePoint( todoId, fileName );
 
       const todo = await getDataById<Todo>(`/todo/${todoId}`);
       const updatedAttachments = (todo.attachments || []).filter(
-        (file) => file.id !== itemId
+        (file) => file.name !== fileName
       );
       await editData(`/todo/${todoId}`, { attachments: updatedAttachments });
 
@@ -266,35 +179,22 @@ const TodoApp = () => {
 
   const handleReplaceFile = async (
     todoId: string,
-    oldFileId: string,
+    oldFileName: string,
     newFile: File
   ) => {
-    if (!accessToken) {
-      messageApi.error(t("please log in first"));
-      return;
-    }
-    if (!siteId || !driveId) {
-      messageApi.error(
-        t("failed to retrieve siteId or driveId, please log in again")
-      );
-      return;
-    }
     setSpinning(true);
     try {
-      await deleteFileOnSharePoint(siteId, driveId, oldFileId, accessToken);
+      await deleteFileOnSharePoint(todoId, oldFileName);
 
       const fileRes = await uploadFileToSharePoint(
-        siteId,
-        driveId,
         todoId,
-        newFile,
-        accessToken
+        newFile
       );
 
       const todo = await getDataById<Todo>(`/todo/${todoId}`);
       const updatedAttachments = (todo.attachments || [])
-        .filter((file) => file.id !== oldFileId)
-        .concat(fileRes);
+        .filter((file) => file.name !== oldFileName)
+        .concat(fileRes.data);
 
       await editData(`/todo/${todoId}`, { attachments: updatedAttachments });
 
@@ -329,12 +229,12 @@ const TodoApp = () => {
       title: "File",
       dataIndex: "attachments",
       render: (
-        attachments: { id: string; url: string; name: string }[] = [],
+        attachments: { url: string; name: string }[] = [],
         record: Todo
       ) => (
         <>
           {attachments.map((file, index) => (
-            <div key={file.id} className="flex items-center gap-1 my-2">
+            <div key={file.name} className="flex items-center gap-1 my-2">
               <a
                 className="w-[120px] whitespace-nowrap overflow-hidden text-ellipsis block"
                 href={file.url}
@@ -346,7 +246,7 @@ const TodoApp = () => {
               <Upload
                 showUploadList={false}
                 beforeUpload={(newFile) => {
-                  handleReplaceFile(record.id, file.id, newFile);
+                  handleReplaceFile(record.id, file.name, newFile);
                   return false;
                 }}
               >
@@ -355,7 +255,7 @@ const TodoApp = () => {
               <Button
                 size="small"
                 danger
-                onClick={() => handleDeleteFile(record.id, file.id)}
+                onClick={() => handleDeleteFile(record.id, file.name)}
               >
                 <RiDeleteBin6Line />
               </Button>
@@ -408,17 +308,7 @@ const TodoApp = () => {
       <Spin spinning={spinning} fullscreen />
       {contextHolder}
       <div className="bg-white w-[80vw] h-fit max-w-[1000px] my-8 p-4 rounded-[4px] shadow-sm">
-        <div className="flex justify-between mb-2">
-          {accessToken ? (
-            <Space size={16} wrap>
-              <Avatar icon={<UserOutlined />} />
-            </Space>
-          ) : (
-            <Button className="uppercase font-medium" type="primary" onClick={handleLogin}>
-              {t("sign in")}
-            </Button>
-          )}
-
+        <div className="flex justify-end mb-2">
           <Select
             defaultValue={currentLanguage}
             style={{ width: 120 }}

@@ -13,7 +13,7 @@ export class Todo {
     completed: boolean;
 
     @Property({ type: 'json', nullable: true })
-    attachments: { id: string, url: string, name: string }[] = [];
+    attachments: { url: string, name: string }[] = [];
 
     @Property()
     createdAt: Date = new Date();

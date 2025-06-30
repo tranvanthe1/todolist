@@ -17,7 +17,7 @@ export class TodosService {
     return todo;
   }
 
-  async add(title: string, attachments: { id: string; url: string; name: string; }[] = []): Promise<Todo> {
+  async add(title: string, attachments: { url: string; name: string; }[] = []): Promise<Todo> {
     const todo = new Todo();
     todo.title = title;
     todo.completed = false;

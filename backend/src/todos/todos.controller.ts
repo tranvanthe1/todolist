@@ -2,7 +2,7 @@ import { Controller, Get, Post, Body, Param, Delete, Put } from '@nestjs/common'
 import { TodosService } from './todos.service';
 import { Todo } from './entities/todos.entities';
 
-@Controller('api/todo')
+@Controller('todo')
 export class TodosController {
   constructor(private readonly todosService: TodosService) {}
 
@@ -17,7 +17,7 @@ export class TodosController {
   }
 
   @Post('add')
-  add(@Body() body: { title: string, attachments?: { id: string; url: string; name: string; }[] }) {
+  add(@Body() body: { title: string, attachments?: { url: string; name: string; }[] }) {
     const { title, attachments } = body;
     if (!title) {
       return { message: 'Vui lòng nhập tiêu đề việc cần làm' };
