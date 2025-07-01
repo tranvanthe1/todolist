@@ -9,7 +9,7 @@ export const uploadFilesToSharePoint = (todoId: string, files: File[]) => {
   files.forEach(file => {
     formData.append('files', file);
   });
-  return axios.post(`http://localhost:3001/sharepoint/upload/${todoId}`, formData);
+  return axios.post(`${process.env.REACT_APP_API_BASE_URL}/sharepoint/upload/${todoId}`, formData);
 };
 
 export const deleteFileOnSharePoint = (todoId: string, fileName: string) => {
