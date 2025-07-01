@@ -1,4 +1,4 @@
-import { createContext, useEffect, useState, ReactNode } from "react";
+import { createContext, useEffect, useState } from "react";
 import TodoApp from "./pages/todoApp";
 import { fetchDataFromApi } from "./api/todoApi";
 import { Todo } from "./types/todo";

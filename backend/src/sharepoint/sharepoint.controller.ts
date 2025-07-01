@@ -1,6 +1,8 @@
 import { Body, Controller, Delete, Get, Param, Post, UploadedFile, UseInterceptors } from '@nestjs/common';
 import { SharePointService } from './sharepoint.service';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { FilesInterceptor } from '@nestjs/platform-express';
+import { UploadedFiles } from '@nestjs/common';
 
 @Controller('sharepoint')
 export class SharePointController {
@@ -13,16 +15,25 @@ export class SharePointController {
   }
 
   @Post('upload/:todoId')
-  @UseInterceptors(FileInterceptor('file'))
-  async uploadFile(
+  @UseInterceptors(FilesInterceptor('files'))
+  async uploadMultipleFiles(
     @Param('todoId') todoId: string,
-    @UploadedFile() file: Express.Multer.File
+    @UploadedFiles() files: Express.Multer.File[]
   ) {
-    const url = await this.spService.uploadFile(todoId, file.originalname, file.buffer);
-    return {
-      url: 'https://1work.sharepoint.com' + url,
-      name: file.originalname,
-    };
+    const uploaded = await Promise.all(
+      files.map(async (file) => {
+        const url = await this.spService.uploadFile(
+          todoId,
+          file.originalname,
+          file.buffer
+        );
+        return {
+          url: 'https://1work.sharepoint.com' + url,
+          name: file.originalname,
+        };
+      })
+    );
+    return uploaded;
   }
 
   @Delete('file/:todoId/:fileName')

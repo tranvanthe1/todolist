@@ -17,20 +17,20 @@ import { ColumnsType } from "antd/es/table";
 import { Todo } from "../types/todo";
 import { useTranslation } from "react-i18next";
 
-import { createFolderIfNotExist, deleteFolderOnSharePoint, deleteFileOnSharePoint, uploadFileToSharePoint } from "../api/sharepointApi";
+import { createFolderIfNotExist, deleteFolderOnSharePoint, deleteFileOnSharePoint, uploadFilesToSharePoint } from "../api/sharepointApi";
 
 const TodoApp = () => {
-
   const context = useContext(MyContext);
-
+  
   const { t, i18n } = useTranslation();
   const [currentLanguage, setCurrentLanguage] = useState("vi");
-
+  
   const [messageApi, contextHolder] = message.useMessage();
-
+  
   const [newTodo, setNewTodo] = useState<string>("");
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [fileList, setFileList] = useState<UploadFile[]>([]);
+  const [pendingFiles, setPendingFiles] = useState<{ [todoId: string]: UploadFile[] }>({});
   
   const [spinning, setSpinning] = useState(false);
   
@@ -87,11 +87,12 @@ const TodoApp = () => {
 
     await createFolderIfNotExist( id );
 
-    const uploadedFiles = [];
-    for (let file of fileList) {
-      const res = await uploadFileToSharePoint(id, file.originFileObj as File);
-      uploadedFiles.push(res.data);
-    }
+    let uploadedFiles = [];
+    if (fileList.length > 0) {
+    const files = fileList.map(f => f.originFileObj as File);
+    const res = await uploadFilesToSharePoint(id, files);
+    uploadedFiles=res.data;
+  }
 
     await editData(`/todo/${id}`, { attachments: uploadedFiles });
     const res = await fetchDataFromApi<Todo[]>("/todo");
@@ -117,31 +118,6 @@ const TodoApp = () => {
     } catch (err) {
       console.error(err);
       messageApi.error(t("error deleting task and folder"));
-    } finally {
-      setSpinning(false);
-    }
-  };
-
-  const handleUploadFile = async (todoId: string, file: File) => {
-    setSpinning(true);
-    try {
-      const fileRes = await uploadFileToSharePoint(
-        todoId,
-        file
-      );
-
-      const todo = await getDataById<Todo>(`/todo/${todoId}`);
-      const updatedAttachments = [...(todo.attachments || []), fileRes.data];
-
-      await editData(`/todo/${todoId}`, { attachments: updatedAttachments });
-
-      const res = await fetchDataFromApi<Todo[]>("/todo");
-      context.setTodos(res);
-
-      messageApi.success(t("file uploaded successfully"));
-    } catch (err) {
-      console.error(err);
-      messageApi.error(t("error uploading file"));
     } finally {
       setSpinning(false);
     }
@@ -177,6 +153,47 @@ const TodoApp = () => {
     }
   };
 
+// start add file for todo
+  const handleUploadMultipleFiles = async (todoId: string) => {
+    const files = pendingFiles[todoId];
+    if (!files || files.length === 0) return;
+
+    setSpinning(true);
+    try {
+      const rawFiles = files.map((f) => f.originFileObj as File);
+      const res = await uploadFilesToSharePoint(todoId, rawFiles);
+      const todo = await getDataById<Todo>(`/todo/${todoId}`);
+      const updatedAttachments = [...(todo.attachments || []), ...res.data];
+      await editData(`/todo/${todoId}`, { attachments: updatedAttachments });
+
+      const data = await fetchDataFromApi<Todo[]>("/todo");
+      context.setTodos(data);
+
+      messageApi.success(t("file uploaded successfully"));
+    } catch (err) {
+      console.error(err);
+      messageApi.error(t("upload failed"));
+    } finally {
+      setPendingFiles((prev) => {
+        const newPending = { ...prev };
+        delete newPending[todoId];
+        return newPending;
+      });
+      setSpinning(false);
+    }
+  };
+
+    const handleRemovePendingFile = (todoId: string, uid: string) => {
+      setPendingFiles((prev) => {
+        const newList = prev[todoId].filter((file) => file.uid !== uid);
+        return {
+          ...prev,
+          [todoId]: newList,
+        };
+      });
+    };
+// end add file for todo
+
   const handleReplaceFile = async (
     todoId: string,
     oldFileName: string,
@@ -186,10 +203,7 @@ const TodoApp = () => {
     try {
       await deleteFileOnSharePoint(todoId, oldFileName);
 
-      const fileRes = await uploadFileToSharePoint(
-        todoId,
-        newFile
-      );
+      const fileRes = await uploadFilesToSharePoint(todoId, [newFile]);
 
       const todo = await getDataById<Todo>(`/todo/${todoId}`);
       const updatedAttachments = (todo.attachments || [])
@@ -269,36 +283,71 @@ const TodoApp = () => {
       dataIndex: "",
       key: "x",
       render: (_: any, record: Todo) => (
-        <div className="flex">
-          <Popconfirm
-            className="me-2"
-            title="Bạn muốn xóa item này?"
-            onConfirm={()=>confirm(record.id) }
-            onCancel={cancel}
-            okText="Yes"
-            cancelText="No"
-          >
-            <Button
-            size="small"
-            danger
-          >
-            <RiDeleteBin6Line />
-          </Button>
-          </Popconfirm>
-          <Upload
+        <div>
+          <div className="flex">
+            <Popconfirm
+              className="me-2"
+              title="Bạn muốn xóa item này?"
+              onConfirm={()=>confirm(record.id) }
+              onCancel={cancel}
+              okText="Yes"
+              cancelText="No"
+            >
+              <Button
+              size="small"
+              danger
+            >
+              <RiDeleteBin6Line />
+            </Button>
+            </Popconfirm>
+            <Upload
               multiple
               showUploadList={false}
               beforeUpload={(file) => {
-                handleUploadFile(record.id, file);
+                setPendingFiles((prev) => {
+                  const list = prev[record.id] || [];
+                  return {
+                    ...prev,
+                    [record.id]: [...list, {
+                      uid: file.uid,
+                      name: file.name,
+                      status: 'done',
+                      originFileObj: file
+                    }]
+                  };
+                });
                 return false;
               }}
             >
               <Button size="small" icon={<UploadOutlined />}>
-              {t("add file")}
+                {t("add file")}
               </Button>
-          </Upload>
+            </Upload>
+          </div>
+          {pendingFiles[record.id] && pendingFiles[record.id].length > 0 && (
+            <div className="mt-1">
+              {pendingFiles[record.id].map((file) => (
+                <div key={file.uid} className="flex items-center gap-1 mb-1">
+                  <span>{file.name}</span>
+                  <Button
+                    size="small"
+                    danger
+                    onClick={() => handleRemovePendingFile(record.id, file.uid)}
+                  >
+                    X
+                  </Button>
+                </div>
+              ))}
+              <Button
+                size="small"
+                type="primary"
+                onClick={() => handleUploadMultipleFiles(record.id)}
+              >
+                {t("upload")}
+              </Button>
+            </div>
+          )}
         </div>
-        
       ),
     },
   ];

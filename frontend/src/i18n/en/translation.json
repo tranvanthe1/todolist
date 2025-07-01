@@ -23,5 +23,6 @@
     "file uploaded successfully": "File uploaded successfully",
     "error uploading file": "Error uploading file",
     "file deleted successfully": "File deleted successfully",
-    "error deleting file": "Error deleting file"
+    "error deleting file": "Error deleting file",
+    "upload": "Upload"
 }

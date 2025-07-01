@@ -23,6 +23,7 @@
     "file uploaded successfully": "Tải file thành công",
     "error uploading file": "Lỗi khi tải file",
     "file deleted successfully": "Xóa file thành công",
-    "error deleting file": "Lỗi khi xoá file"
+    "error deleting file": "Lỗi khi xoá file",
+    "upload": "Tải lên"
 
 }

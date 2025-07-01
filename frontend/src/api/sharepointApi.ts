@@ -1,24 +1,23 @@
-
 import axios from 'axios';
 
-const API_BASE_URL = "http://localhost:3001";
-
 export const createFolderIfNotExist = (todoId: string) => {
-  return axios.post(`${API_BASE_URL}/sharepoint/folder/${todoId}`);
+  return axios.post(`${process.env.REACT_APP_API_BASE_URL}/sharepoint/folder/${todoId}`);
 };
 
-export const uploadFileToSharePoint = (todoId: string, file: File) => {
+export const uploadFilesToSharePoint = (todoId: string, files: File[]) => {
   const formData = new FormData();
-  formData.append('file', file);
-  return axios.post(`${API_BASE_URL}/sharepoint/upload/${todoId}`, formData);
+  files.forEach(file => {
+    formData.append('files', file);
+  });
+  return axios.post(`http://localhost:3001/sharepoint/upload/${todoId}`, formData);
 };
 
 export const deleteFileOnSharePoint = (todoId: string, fileName: string) => {
-  return axios.delete(`${API_BASE_URL}/sharepoint/file/${todoId}/${fileName}`);
+  return axios.delete(`${process.env.REACT_APP_API_BASE_URL}/sharepoint/file/${todoId}/${fileName}`);
 };
 
 export const deleteFolderOnSharePoint = (todoId: string) => {
-  return axios.delete(`${API_BASE_URL}/sharepoint/folder/${todoId}`);
+  return axios.delete(`${process.env.REACT_APP_API_BASE_URL}/sharepoint/folder/${todoId}`);
 };
 
 
